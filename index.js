@@ -53,7 +53,6 @@ app.get("/users", async (req, res) => {
   }
 });
 
-
 app.post("/google-login", async (req, res) => {
   try {
     const { name, email, image } = req.body;
@@ -367,7 +366,7 @@ app.post("/reset-password/:token", async (req, res) => {
     const { newPassword } = req.body;
 
     if (!newPassword || newPassword.length < 6) {
-      return res.status(400).send("<h2>Password must be at least 6 characters long</h2>");
+      return res.status(400).send("<h2>Password rquiered must be at least 6 characters long</h2>");
     }
 
     // Find user inside the userData array
@@ -403,13 +402,6 @@ app.post("/reset-password/:token", async (req, res) => {
     res.status(500).send("<h2>Server error</h2>");
   }
 });
-
-
-
-
-
-
-
 
 
 
