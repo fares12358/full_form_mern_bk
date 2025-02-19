@@ -1,19 +1,22 @@
-const { Schema, model } = require("mongoose");
+import mongoose from "mongoose";
+
+const { Schema, model } = mongoose;
 
 const usersData = new Schema({
-    userData: [
-        {
-            "name": String,
-            "email": String,
-            "image": String,
-            "username":String,
-            "password":String,
-            "verification":Boolean,
-            "resetToken":String||Number,
-            "resetTokenExpiry":String||Number,
-        },
-    ],
-})
+  userData: [
+    {
+      name: String,
+      email: String,
+      image: String,
+      username: String,
+      password: String,
+      verification: Boolean,
+      resetToken: String || Number,
+      resetTokenExpiry: String || Number,
+    },
+  ],
+});
 
 const UserModel = model("User", usersData);
-module.exports = UserModel;
+
+export default UserModel; // Use ES module export
