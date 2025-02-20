@@ -15,7 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 5, 
+    max: 5,
     message: { message: "Too many login attempts, please try again later." },
 });
 
@@ -53,7 +53,7 @@ router.post("/google-login", async (req, res) => {
         res.status(404).json({ message: "Error creating/updating user", error });
     }
 });
-router.post("/Login",loginLimiter, async (req, res) => {
+router.post("/Login", loginLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
         if (!username || !password) {
@@ -77,27 +77,7 @@ router.post("/Login",loginLimiter, async (req, res) => {
         res.status(500).json({ message: "Internal server error", error: error.message, login: false });
     }
 });
-router.post("/getUserData", async (req, res) => {
-    try {
-        const { email, isVr } = req.body;
 
-        if (!email || !isVr) {
-            return res.status(400).json({ message: "Email and isVr are required" });
-        }
-        const existingUser = await UserModel.findOne({ "userData.email": email });
-        if (!existingUser) {
-            return res.status(404).json({ message: "Cannot find user with this email" });
-        }
-        const user = existingUser.userData.find(user => user.email === email);
-        if (!user) {
-            return res.status(404).json({ message: "User not found in userData" });
-        }
-        console.log(user);
-        return res.status(200).json(user);
-    } catch (error) {
-        return res.status(500).json({ message: "Error in API", error: error.message });
-    }
-});
 router.post('/CreateAcc', async (req, res) => {
     try {
         const { name, username, password, email } = req.body;
@@ -121,6 +101,7 @@ router.post('/CreateAcc', async (req, res) => {
             subject: "Verify Your Email",
             text: `Click the link to verify your account: ${verificationLink}`
         });
+
         const updatedUser = await UserModel.findOneAndUpdate(
             {},
             {
@@ -130,7 +111,9 @@ router.post('/CreateAcc', async (req, res) => {
                         username,
                         password: hashedPassword,
                         email,
-                        verification: false
+                        verification: false,
+                        verificationToken,
+                        expiresAt: Date.now() + 3600000
                     }
                 }
             },
@@ -148,28 +131,57 @@ router.get("/verify", async (req, res) => {
         const { token } = req.query;
         if (!token) {
             return res.status(400).send(`
-          <html>
-            <body style="text-align:center; font-family:Arial; padding:50px;">
-              <h2 style="color:red;">Invalid token</h2>
-            </body>
-          </html>
-        `);
+            <html>
+              <body style="text-align:center; font-family:Arial; padding:50px;">
+                <h2 style="color:red;">Invalid token</h2>
+              </body>
+            </html>
+          `);
         }
+
+        // Verify JWT token
         const decoded = jwt.verify(token, process.env.jwt_secret_key);
-        const user = await UserModel.findOneAndUpdate(
-            { "userData.email": decoded.email },
-            { $set: { "userData.$.verification": true } },
-            { new: true }
-        );
+
+        // Find user with matching email and token
+        const user = await UserModel.findOne({
+            "userData.email": decoded.email,
+            "userData.verificationToken": token
+        });
+
         if (!user) {
             return res.status(400).send(`
-          <html>
-            <body style="text-align:center; font-family:Arial; padding:50px;">
-              <h2 style="color:red;">User not found</h2>
-            </body>
-          </html>
-        `);
+            <html>
+              <body style="text-align:center; font-family:Arial; padding:50px;">
+                <h2 style="color:red;">User not found or invalid token</h2>
+              </body>
+            </html>
+          `);
         }
+
+        // Find the exact user entry
+        const userEntry = user.userData.find(u => u.email === decoded.email);
+
+        // Check if the token has expired
+        if (!userEntry || Date.now() > userEntry.expiresAt) {
+            return res.status(400).send(`
+            <html>
+              <body style="text-align:center; font-family:Arial; padding:50px;">
+                <h2 style="color:red;">Token has expired</h2>
+              </body>
+            </html>
+          `);
+        }
+
+        // Update verification status and remove token
+        await UserModel.updateOne(
+            { "userData.email": decoded.email },
+            {
+                $set: { "userData.$[elem].verification": true },
+                $unset: { "userData.$[elem].verificationToken": "", "userData.$[elem].expiresAt": "" }
+            },
+            { arrayFilters: [{ "elem.email": decoded.email }] }
+        );
+
         res.send(`
         <html>
           <body style="text-align:center; font-family:Arial; padding:50px;">

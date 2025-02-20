@@ -13,6 +13,8 @@ const usersData = new Schema({
       verification: Boolean,
       resetToken: String || Number,
       resetTokenExpiry: String || Number,
+      verificationToken: String || Number,
+      expiresAt: String || Number,
     },
   ],
 });
