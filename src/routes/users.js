@@ -119,4 +119,50 @@ router.post('/updateUser', async (req, res) => {
   }
 })
 
+
+router.post('/verifyEmail', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "email required" });
+    }
+    const existingUser = await UserModel.findOne({
+      "userData.email": email
+    });
+    if (!existingUser) {
+      return res.status(404).json({ message: "Cannot find user with this email or ID" });
+    }
+    
+    
+    const userIndex = existingUser.userData.findIndex(user => user.email===email);
+    if (userIndex === -1) {
+      return res.status(400).json({ message: "User not found in userData" });
+    }
+    const updateFields = {}; // Store fields to update
+
+    updateFields[`userData.${userIndex}.email`] = email;
+    updateFields[`userData.${userIndex}.verification`] = false;
+    const verificationToken = jwt.sign({ email }, process.env.jwt_secret_key, { expiresIn: "1h" });
+    const verificationLink = `${API_URL}/verify?token=${verificationToken}`;
+    await transporter.sendMail({
+      from: "YKSTOR.com",
+      to: email,
+      subject: "Verify Your new Email",
+      text: `Click the link to verify your account: ${verificationLink}`
+    });
+    updateFields[`userData.${userIndex}.verificationToken`] = verificationToken;
+    updateFields[`userData.${userIndex}.expiresAt`] = Date.now() + 3600000;
+    const updatedUser = await UserModel.findOneAndUpdate(
+      { "userData.email": email },
+      { $set: updateFields },
+      { new: true }
+    );
+
+    return res.status(200).json({ message: "verification send successfully ,Chick your inbox", user: updatedUser.userData[userIndex] });
+
+  } catch (error) {
+    return res.status(500).json({ message: "Error in API", error: error.message });
+  }
+})
+
 export default router;

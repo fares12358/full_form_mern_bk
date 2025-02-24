@@ -15,6 +15,9 @@ const usersData = new Schema({
       resetTokenExpiry: String || Number,
       verificationToken: String || Number,
       expiresAt: String || Number,
+      role:String,
+      dashusername:String,
+      dashpassword:String,
     },
   ],
 });

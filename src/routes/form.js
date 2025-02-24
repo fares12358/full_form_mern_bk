@@ -18,41 +18,34 @@ const loginLimiter = rateLimit({
     max: 5,
     message: { message: "Too many login attempts, please try again later." },
 });
-
 router.post("/google-login", async (req, res) => {
     try {
         const { name, email, image } = req.body;
+
         if (!name || !email || !image) {
             return res.status(400).json({ message: "image/name/email required" });
         }
+
         const existingUser = await UserModel.findOne({ "userData.email": email });
+
         if (existingUser) {
-            // If the user exists, update their information without removing any other data
-            const updatedUser = await UserModel.findOneAndUpdate(
-                { "userData.email": email },
-                {
-                    $set: {
-                        "userData.$.name": name,
-                        "userData.$.email": email,
-                        "userData.$.image": image,
-                    }
-                },
-                { new: true }
-            );
-            return res.status(200).json({ message: "User updated successfully" });
+            return res.status(200).json({ message: "User already exists", user: existingUser });
         } else {
             const newUser = { name, email, image, verification: true };
+
             const userDoc = await UserModel.findOneAndUpdate(
-                {}, // Empty filter to match any document
+                {}, // Find any document (assuming a single document structure)
                 { $push: { userData: newUser } },
-                { new: true, upsert: true } // Create a new document if none exists
+                { new: true, upsert: true } // Ensure a document exists, create one if necessary
             );
-            return res.status(200).json({ message: "User created successfully" });
+
+            return res.status(200).json({ message: "User created successfully", user: newUser });
         }
     } catch (error) {
-        res.status(404).json({ message: "Error creating/updating user", error });
+        res.status(500).json({ message: "Error processing request", error });
     }
 });
+
 router.post("/Login", loginLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
